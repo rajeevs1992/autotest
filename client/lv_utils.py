@@ -6,17 +6,17 @@ or creates such.
 :copyright: Intra2net AG 2012
 @license: GPL v2
 
-@param vg_name: Name of the volume group.
-@param lv_name: Name of the logical volume.
-@param lv_size: Size of the logical volume as string in the form "#G"
+:param vg_name: Name of the volume group.
+:param lv_name: Name of the logical volume.
+:param lv_size: Size of the logical volume as string in the form "#G"
         (for example 30G).
-@param lv_snapshot_name: Name of the snapshot with origin the logical
+:param lv_snapshot_name: Name of the snapshot with origin the logical
         volume.
-@param lv_snapshot_size: Size of the snapshot with origin the logical
+:param lv_snapshot_size: Size of the snapshot with origin the logical
         volume also as "#G".
-@param ramdisk_vg_size: Size of the ramdisk virtual group.
-@param ramdisk_basedir: Base directory for the ramdisk sparse file.
-@param ramdisk_sparse_filename: Name of the ramdisk sparse file.
+:param ramdisk_vg_size: Size of the ramdisk virtual group.
+:param ramdisk_basedir: Base directory for the ramdisk sparse file.
+:param ramdisk_sparse_filename: Name of the ramdisk sparse file.
 
 Sample ramdisk params:
     ramdisk_vg_size = "40000"
@@ -181,6 +181,36 @@ def vg_list():
             index += 1
         vgroups[vg_name] = details_dict
     return vgroups
+
+
+@error.context_aware
+def vg_create(vg_name, pv_list):
+    """
+    Create a volume group by using the block special devices
+    """
+    error.context(
+        "Creating volume group '%s' by using '%s'" %
+        (vg_name, pv_list), logging.info)
+
+    if vg_check(vg_name):
+        raise error.TestError("Volume group '%s' already exist" % vg_name)
+    cmd = "vgcreate %s %s" % (vg_name, pv_list)
+    result = utils.run(cmd)
+    logging.info(result.stdout.rstrip())
+
+
+@error.context_aware
+def vg_remove(vg_name):
+    """
+    Remove a volume group.
+    """
+    error.context("Removing volume '%s'" % vg_name, logging.info)
+
+    if not vg_check(vg_name):
+        raise error.TestError("Volume group '%s' could not be found" % vg_name)
+    cmd = "vgremove -f %s" % vg_name
+    result = utils.run(cmd)
+    logging.info(result.stdout.rstrip())
 
 
 def lv_check(vg_name, lv_name):

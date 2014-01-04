@@ -185,6 +185,10 @@ REQUIRES_PROTOBUFS = set((
     'job_serializer_unittest.py',
 ))
 
+REQUIRES_XML_ETREE = set((
+    'autotest_firewalld_add_service_unittest.py',
+))
+
 LONG_RUNTIME = set((
     'base_barrier_unittest.py',
     'logging_manager_unittest.py',
@@ -197,6 +201,7 @@ LONG_TESTS = (REQUIRES_DJANGO |
               REQUIRES_SIMPLEJSON |
               REQUIRES_AUTH |
               REQUIRES_PROTOBUFS |
+              REQUIRES_XML_ETREE |
               LONG_RUNTIME)
 
 
@@ -209,9 +214,9 @@ class TestFailure(Exception):
 
 def run_test(mod_names, options):
     """
-    @param mod_names: A list of individual parts of the module name to import
+    :param mod_names: A list of individual parts of the module name to import
             and run as a test suite.
-    @param options: optparse options.
+    :param options: optparse options.
     """
     if not options.debug:
         sys.stdout = StreamProxy(stream=sys.stdout)
@@ -290,8 +295,8 @@ def find_and_run_tests(start, options):
     Find and run Python unittest suites below the given directory.  Only look
     in subdirectories of start that are actual importable Python modules.
 
-    @param start: The absolute directory to look for tests under.
-    @param options: optparse options.
+    :param start: The absolute directory to look for tests under.
+    :param options: optparse options.
     """
     if options.module_list:
         modules = []

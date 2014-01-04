@@ -150,7 +150,7 @@ class BaseBackend(object):
         """
         Installs package that provides [path].
 
-        @param path: Path to file.
+        :param path: Path to file.
         """
         provides = self.provides(path)
         if provides is not None:
@@ -169,6 +169,11 @@ class RpmBackend(BaseBackend):
     as yum and zypper.
     """
 
+    PACKAGE_TYPE = 'rpm'
+    SOFTWARE_COMPONENT_QRY = (
+        PACKAGE_TYPE + ' ' +
+        '%{NAME} %{VERSION} %{RELEASE} %{SIGMD5} %{ARCH}')
+
     def __init__(self):
         self.lowlevel_base_cmd = os_dep.command('rpm')
 
@@ -176,8 +181,8 @@ class RpmBackend(BaseBackend):
         """
         Helper for the check_installed public method.
 
-        @param name: Package name.
-        @param version: Package version.
+        :param name: Package name.
+        :param version: Package version.
         """
         cmd = (self.lowlevel_base_cmd + ' -q --qf %{VERSION} ' + name +
                ' 2> /dev/null')
@@ -195,9 +200,9 @@ class RpmBackend(BaseBackend):
         """
         Check if package [name] is installed.
 
-        @param name: Package name.
-        @param version: Package version.
-        @param arch: Package architecture.
+        :param name: Package name.
+        :param version: Package version.
+        :param arch: Package architecture.
         """
         if arch:
             cmd = (self.lowlevel_base_cmd + ' -q --qf %{ARCH} ' + name +
@@ -220,12 +225,23 @@ class RpmBackend(BaseBackend):
             except error.CmdError:
                 return False
 
-    def list_all(self):
+    def list_all(self, software_components=True):
         """
         List all installed packages.
+
+        :param software_components: log in a format suitable for the
+                                    SoftwareComponent schema
         """
         logging.debug("Listing all system packages (may take a while)")
-        cmd_result = utils.run('rpm -qa | sort', verbose=False)
+
+        if software_components:
+            cmd_format = "rpm -qa --qf '%s' | sort"
+            query_format = "%s\n" % self.SOFTWARE_COMPONENT_QRY
+            cmd_format = cmd_format % query_format
+            cmd_result = utils.run(cmd_format, verbose=False)
+        else:
+            cmd_result = utils.run('rpm -qa | sort', verbose=False)
+
         out = cmd_result.stdout.strip()
         installed_packages = out.splitlines()
         return installed_packages
@@ -234,7 +250,7 @@ class RpmBackend(BaseBackend):
         """
         List files installed on the system by package [name].
 
-        @param name: Package name.
+        :param name: Package name.
         """
         path = os.path.abspath(name)
         if os.path.isfile(path):
@@ -262,6 +278,7 @@ class DpkgBackend(BaseBackend):
     as apt and aptitude.
     """
 
+    PACKAGE_TYPE = 'deb'
     INSTALLED_OUTPUT = 'install ok installed'
 
     def __init__(self):
@@ -300,7 +317,7 @@ class DpkgBackend(BaseBackend):
         """
         List files installed by package [package].
 
-        @param package: Package name.
+        :param package: Package name.
         :return: List of paths installed by package.
         """
         if os.path.isfile(package):
@@ -372,7 +389,7 @@ class YumBackend(RpmBackend):
         """
         Removes package [name].
 
-        @param name: Package name (eg. 'ipython').
+        :param name: Package name (eg. 'ipython').
         """
         r_cmd = self.base_command + ' ' + 'erase' + ' ' + name
         try:
@@ -385,7 +402,7 @@ class YumBackend(RpmBackend):
         """
         Adds package repository located on [url].
 
-        @param url: Universal Resource Locator of the repository.
+        :param url: Universal Resource Locator of the repository.
         """
         # Check if we URL is already set
         for section in self.cfgparser.sections():
@@ -410,7 +427,7 @@ class YumBackend(RpmBackend):
         """
         Removes package repository located on [url].
 
-        @param url: Universal Resource Locator of the repository.
+        :param url: Universal Resource Locator of the repository.
         """
         for section in self.cfgparser.sections():
             for option, value in self.cfgparser.items(section):
@@ -418,11 +435,20 @@ class YumBackend(RpmBackend):
                     self.cfgparser.remove_section(section)
                     self.cfgparser.write(open(self.repo_file_path, "w"))
 
-    def upgrade(self):
+    def upgrade(self, name=None):
         """
         Upgrade all available packages.
+
+        Optionally, upgrade individual packages.
+
+        :param name: optional parameter wildcard spec to upgrade
+        :type name: str
         """
-        r_cmd = self.base_command + ' ' + 'update'
+        if not name:
+            r_cmd = self.base_command + ' ' + 'update'
+        else:
+            r_cmd = self.base_command + ' ' + 'update' + ' ' + name
+
         try:
             utils.system(r_cmd)
             return True
@@ -433,7 +459,7 @@ class YumBackend(RpmBackend):
         """
         Returns a list of packages that provides a given capability.
 
-        @param name: Capability name (eg, 'foo').
+        :param name: Capability name (eg, 'foo').
         """
         try:
             d_provides = self.yum_base.searchPackageProvides(args=[name])
@@ -478,7 +504,7 @@ class ZypperBackend(RpmBackend):
         """
         Installs package [name]. Handles local installs.
 
-        @param name: Package Name.
+        :param name: Package Name.
         """
         i_cmd = self.base_command + ' install -l ' + name
         try:
@@ -491,7 +517,7 @@ class ZypperBackend(RpmBackend):
         """
         Adds repository [url].
 
-        @param url: URL for the package repository.
+        :param url: URL for the package repository.
         """
         ar_cmd = self.base_command + ' addrepo ' + url
         try:
@@ -504,7 +530,7 @@ class ZypperBackend(RpmBackend):
         """
         Removes repository [url].
 
-        @param url: URL for the package repository.
+        :param url: URL for the package repository.
         """
         rr_cmd = self.base_command + ' removerepo ' + url
         try:
@@ -525,11 +551,19 @@ class ZypperBackend(RpmBackend):
         except error.CmdError:
             return False
 
-    def upgrade(self):
+    def upgrade(self, name=None):
         """
         Upgrades all packages of the system.
+
+        Optionally, upgrade individual packages.
+
+        :param name: Optional parameter wildcard spec to upgrade
+        :type name: str
         """
-        u_cmd = self.base_command + ' update -l'
+        if not name:
+            u_cmd = self.base_command + ' update -l'
+        else:
+            u_cmd = self.base_command + ' ' + 'update' + ' ' + name
 
         try:
             utils.system(u_cmd)
@@ -541,7 +575,7 @@ class ZypperBackend(RpmBackend):
         """
         Searches for what provides a given file.
 
-        @param name: File path.
+        :param name: File path.
         """
         p_cmd = self.base_command + ' what-provides ' + name
         list_provides = []
@@ -600,7 +634,7 @@ class AptBackend(DpkgBackend):
         """
         Installs package [name].
 
-        @param name: Package name.
+        :param name: Package name.
         """
         command = 'install'
         i_cmd = self.base_command + ' ' + command + ' ' + name
@@ -615,7 +649,7 @@ class AptBackend(DpkgBackend):
         """
         Remove package [name].
 
-        @param name: Package name.
+        :param name: Package name.
         """
         command = 'remove'
         flag = '--purge'
@@ -631,7 +665,7 @@ class AptBackend(DpkgBackend):
         """
         Add an apt repository.
 
-        @param repo: Repository string. Example:
+        :param repo: Repository string. Example:
                 'deb http://archive.ubuntu.com/ubuntu/ maverick universe'
         """
         repo_file = open(self.repo_file_path, 'a')
@@ -643,7 +677,7 @@ class AptBackend(DpkgBackend):
         """
         Remove an apt repository.
 
-        @param repo: Repository string. Example:
+        :param repo: Repository string. Example:
                 'deb http://archive.ubuntu.com/ubuntu/ maverick universe'
         """
         repo_file = open(self.repo_file_path, 'r')
@@ -657,9 +691,14 @@ class AptBackend(DpkgBackend):
         repo_file.write(new_file_contents)
         repo_file.close()
 
-    def upgrade(self):
+    def upgrade(self, name=None):
         """
         Upgrade all packages of the system with eventual new versions.
+
+        Optionally, upgrade individual packages.
+
+        :param name: optional parameter wildcard spec to upgrade
+        :type name: str
         """
         ud_command = 'update'
         ud_cmd = self.base_command + ' ' + ud_command
@@ -667,8 +706,14 @@ class AptBackend(DpkgBackend):
             utils.system(ud_cmd)
         except error.CmdError:
             logging.error("Apt package update failed")
-        up_command = 'upgrade'
-        up_cmd = self.base_command + ' ' + up_command
+
+        if not name:
+            up_command = 'install --only-upgrade'
+            up_cmd = self.base_command + ' ' + up_command + ' ' + name
+        else:
+            up_command = 'upgrade'
+            up_cmd = self.base_command + ' ' + up_command
+
         try:
             utils.system(up_cmd)
             return True
@@ -679,7 +724,7 @@ class AptBackend(DpkgBackend):
         """
         Return a list of packages that provide [path].
 
-        @param path: File path.
+        :param path: File path.
         """
         try:
             command = os_dep.command('apt-file')
@@ -729,8 +774,8 @@ def install_distro_packages(distro_pkg_map, interactive=False):
     software manager interface, thus the native packaging system if the
     currenlty running distro.
 
-    @type disto_pkg_map: dict
-    @param distro_pkg_map: mapping of distro name, as returned by
+    :type disto_pkg_map: dict
+    :param distro_pkg_map: mapping of distro name, as returned by
         utils.get_os_vendor(), to a list of package names
     :return: True if any packages were actually installed, False otherwise
     '''
@@ -763,7 +808,16 @@ def install_distro_packages(distro_pkg_map, interactive=False):
         break
 
     if not pkgs:
+        logging.info("No specific distro release package list")
+
+        # when comparing distro names only, fallback to a lowercase version
+        # of the distro name is it's more common than the case as detected
         pkgs = distro_pkg_map.get(detected_distro.name, None)
+        if not pkgs:
+            pkgs = distro_pkg_map.get(detected_distro.name.lower(), None)
+
+        if not pkgs:
+            logging.error("No generic distro package list")
 
     if pkgs:
         needed_pkgs = []
@@ -775,6 +829,10 @@ def install_distro_packages(distro_pkg_map, interactive=False):
             text = ' '.join(needed_pkgs)
             logging.info('Installing packages "%s"', text)
             result = software_manager.install(text)
+    else:
+        logging.error("No packages found for %s %s %s %s",
+                      detected_distro.name, detected_distro.arch,
+                      detected_distro.version, detected_distro.release)
     return result
 
 

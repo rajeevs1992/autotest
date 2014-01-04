@@ -17,6 +17,8 @@ import os
 import logging
 import tempfile as module_tempfile
 
+from autotest.client import utils
+
 _TEMPLATE = '_autotmp_'
 
 
@@ -25,7 +27,7 @@ class tempfile(object):
     """
     A wrapper for tempfile.mkstemp
 
-    @param unique_id: required, a unique string to help identify what
+    :param unique_id: required, a unique string to help identify what
                       part of code created the tempfile.
     @var name: The name of the temporary file.
     @var fd:  the file descriptor of the temporary file that was created.
@@ -97,7 +99,7 @@ class tempdir(object):
         This is also called by the destructor.
         """
         if self.name and os.path.exists(self.name):
-            shutil.rmtree(self.name)
+            utils.safe_rmdir(self.name)
 
         self.name = None
 

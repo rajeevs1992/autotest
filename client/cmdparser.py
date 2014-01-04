@@ -58,8 +58,8 @@ class CommandParser(object):
         """
         Print the list of control files available.
 
-        @param pipe: Pipe opened to an output stream (may be a pager)
-        @param path: Path we'll walk through
+        :param pipe: Pipe opened to an output stream (may be a pager)
+        :param path: Path we'll walk through
         """
         if not os.path.isdir(path):
             pipe.write("Test directory not available\n")
@@ -127,7 +127,7 @@ class CommandParser(object):
         """
         List the commands and their usage strings.
 
-        @param args is not used here.
+        :param args is not used here.
         """
         logging.info("Commands:")
         logging.info("bootstrap [-H <harness>] Use harness to fetch control file")
@@ -179,6 +179,13 @@ class CommandParser(object):
             cls._print_control_list(pipe, dirtest)
             pipe.write("\n")
 
+        # Walk customtest directory
+        if 'CUSTOM_DIR' in os.environ:
+            dirtest = os.environ['CUSTOM_DIR']
+            pipe.write("Custom Test Directory (%s)\n" % dirtest)
+            cls._print_control_list(pipe, dirtest)
+            pipe.write("\n")
+
         # Walk autodirtest directory
         dirtest = os.environ['AUTODIRTEST']
         pipe.write("Autotest prepackaged tests (%s)\n" % dirtest)
@@ -191,7 +198,7 @@ class CommandParser(object):
         """
         Process a client side command.
 
-        @param args: Command line args.
+        :param args: Command line args.
         """
         logging_manager.configure_logging(CmdParserLoggingConfig(), verbose=options.verbose)
 
@@ -238,12 +245,17 @@ class CommandParser(object):
         fetchdir = FETCHDIRTEST
         globaldir = GLOBALDIRTEST
         autodir = os.environ['AUTODIRTEST']
+        if 'CUSTOM_DIR' in os.environ:
+            customtestdir = os.environ['CUSTOM_DIR']
+        else:
+            customtestdir = ""
 
-        for dirtest in [localdir, fetchdir, globaldir, autodir]:
-            d = os.path.join(dirtest, test)
-            if os.path.isfile(d):
-                args.insert(0, d)
-                return args
+        for dirtest in [localdir, fetchdir, globaldir, autodir, customtestdir]:
+            if dirtest:
+                d = os.path.join(dirtest, test)
+                if os.path.isfile(d):
+                    args.insert(0, d)
+                    return args
 
         logging.error("Can not find test %s", test)
         raise SystemExit(1)
